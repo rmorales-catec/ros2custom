@@ -36,7 +36,6 @@ setup(
             'custom = ros2custom.command.custom:CustomCommand',
         ],
         'ros2custom.verb': [
-            'prueba = ros2custom.verb.prueba:PruebaVerb',
             'monitor = ros2custom.verb.monitor:MonitorVerb',
         ],
     }

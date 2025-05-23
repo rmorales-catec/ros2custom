@@ -47,14 +47,28 @@ class MonitorVerb(VerbExtension):
                     data['delay_win'] = m.group(1)
 
         def parse_bw(line):
-            if "Average bandwidth" in line:
-                m = re.search(r'Average bandwidth:\s+([\d.]+\s+\w+/s)', line)
-                if m:
-                    data['bw'] = m.group(1)
-            elif "Average message size" in line:
-                m = re.search(r'Average message size:\s+([\d.]+\s+\w+)', line)
-                if m:
-                    data['msg_size'] = m.group(1)
+            # Línea con ancho de banda
+            m = re.search(r'([0-9.]+)\s*(B|KB|MB)/s\s+from', line)
+            if m:
+                bw = float(m.group(1))
+                unit = m.group(2).upper()
+                if unit == 'B':
+                    bw = bw / (1024.0 * 1024.0)
+                elif unit == 'KB':
+                    bw = bw / 1024.0
+                # MB ya está en MB, no se convierte
+                data['bw'] = round(bw, 2)
+            # Línea con tamaño medio del mensaje
+            m = re.search(r'Message size mean:\s+([0-9.]+)\s*(B|KB|MB)', line)
+            if m:
+                msg_size = float(m.group(1))
+                unit = m.group(2).upper()
+                if unit == 'B':
+                    msg_size = msg_size / (1024.0 * 1024.0)
+                elif unit == 'KB':
+                    msg_size = msg_size / 1024.0
+                data['msg_size'] = round(msg_size, 2)
+
 
         def launch_monitor(command, parser_fn):
             proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -70,9 +84,11 @@ class MonitorVerb(VerbExtension):
             while True:
                 os.system('clear')  # para Linux/macOS, usa 'cls' en Windows
                 table = [
-                    ['Valor', data['hz'], data['delay'], data['bw']],
-                    ['Info', f'win: {data["hz_win"]}', f'win: {data["delay_win"]}', data['msg_size']],
+                    ["Valor", f"{data['hz']} hz", f"{data['delay']} s", f"{data['bw']} MB/s"],
+                    ["Info", f"win: {data['hz_win']}", f"win: {data['delay_win']}", f"msg_size: {data['msg_size']} MB"],
                 ]
+
+
                 headers = [' ', 'HZ', 'Delay', 'BW']
                 print(tabulate(table, headers=headers, tablefmt='fancy_grid'))
                 time.sleep(1)
