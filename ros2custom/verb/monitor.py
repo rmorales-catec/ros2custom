@@ -12,7 +12,7 @@ class MonitorVerb(VerbExtension):
         parser.add_argument('topic', help='Nombre del tópico a monitorear')
         parser.add_argument('-qos', '--QualityOfService', action='store_true', help='Muestra información detallada del QoS')
         parser.add_argument('-net', '--NetworkInfo', action='store_true', help='Muestra estadísticas de red incluyendo loopback')
-        parser.add_argument('-w', '--window', type=int, default=20, help='Tamaño de la ventana para los cálculos de hz, delay y bw')
+        parser.add_argument('-w', '--window', type=int, default=1000, help='Tamaño de la ventana para los cálculos de hz, delay y bw')
 
 
     def main(self, *, args):
@@ -118,11 +118,9 @@ class MonitorVerb(VerbExtension):
             threading.Thread(target=monitor_network, daemon=True).start()
 
 
-
-        window_arg = ['-w', str(args.window)]
-        threading.Thread(target=launch_monitor, args=(['ros2', 'topic', 'hz'] + window_arg + [topic], parse_hz), daemon=True).start()
-        threading.Thread(target=launch_monitor, args=(['ros2', 'topic', 'delay'] + window_arg + [topic], parse_delay), daemon=True).start()
-        threading.Thread(target=launch_monitor, args=(['ros2', 'topic', 'bw'] + window_arg + [topic], parse_bw), daemon=True).start()
+        threading.Thread(target=launch_monitor, args=(['ros2', 'topic', 'hz', topic, '-w', str(args.window)], parse_hz), daemon=True).start()
+        threading.Thread(target=launch_monitor, args=(['ros2', 'topic', 'delay', topic, '-w', str(args.window)], parse_delay), daemon=True).start()
+        threading.Thread(target=launch_monitor, args=(['ros2', 'topic', 'bw', topic, '-w', str(args.window)], parse_bw), daemon=True).start()
 
 
         if qos:
