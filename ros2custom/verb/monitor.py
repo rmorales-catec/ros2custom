@@ -8,17 +8,17 @@ from ros2cli.verb import VerbExtension
 from tabulate import tabulate
 
 class MonitorVerb(VerbExtension):
-    """Monitorea un topic en tiempo real con HZ, Delay y BW."""
-
     def add_arguments(self, parser: argparse.ArgumentParser, cli_name: str):
         parser.add_argument('topic', help='Nombre del tópico a monitorear')
-        parser.add_argument('-qos', '--QualityOfService', action='store_true', help='Muestra información detallada del QoS de cada publisher/subscriber del topic')
-        # parser.add_argument('-v', '--verbose', action='store_true', help='Muestra información detallada del QoS del tópico')
+        parser.add_argument('-qos', '--QualityOfService', action='store_true', help='Muestra información detallada del QoS')
+        parser.add_argument('-net', '--NetworkInfo', action='store_true', help='Muestra estadísticas de red incluyendo loopback')
+        parser.add_argument('-w', '--window', type=int, default=20, help='Tamaño de la ventana para los cálculos de hz, delay y bw')
+
 
     def main(self, *, args):
         topic = args.topic
-        qos=args.QualityOfService
-        # verbose = args.verbose
+        qos = args.QualityOfService
+        net = args.NetworkInfo
 
         data = {
             'hz': '-', 'hz_win': '-',
@@ -26,8 +26,8 @@ class MonitorVerb(VerbExtension):
             'bw': '-', 'msg_size': '-'
         }
 
-        qos_summary = ""
 
+        qos_summary = ""
         def parse_hz(line):
             if "average rate" in line:
                 m = re.search(r'average rate:\s+([\d.]+)', line)
@@ -54,18 +54,18 @@ class MonitorVerb(VerbExtension):
                 bw = float(m.group(1))
                 unit = m.group(2).upper()
                 if unit == 'B':
-                    bw = bw / (1024.0 * 1024.0)
+                    bw /= 1024.0 * 1024.0
                 elif unit == 'KB':
-                    bw = bw / 1024.0
+                    bw /= 1024.0
                 data['bw'] = round(bw, 2)
             m = re.search(r'Message size mean:\s+([0-9.]+)\s*(B|KB|MB)', line)
             if m:
                 msg_size = float(m.group(1))
                 unit = m.group(2).upper()
                 if unit == 'B':
-                    msg_size = msg_size / (1024.0 * 1024.0)
+                    msg_size /= 1024.0 * 1024.0
                 elif unit == 'KB':
-                    msg_size = msg_size / 1024.0
+                    msg_size /= 1024.0
                 data['msg_size'] = round(msg_size, 2)
 
         def launch_monitor(command, parser_fn):
@@ -73,50 +73,79 @@ class MonitorVerb(VerbExtension):
             for line in proc.stdout:
                 parser_fn(line)
 
-        # Iniciar hilos
-        threading.Thread(target=launch_monitor, args=(['ros2', 'topic', 'hz', topic], parse_hz), daemon=True).start()
-        threading.Thread(target=launch_monitor, args=(['ros2', 'topic', 'delay', topic], parse_delay), daemon=True).start()
-        threading.Thread(target=launch_monitor, args=(['ros2', 'topic', 'bw', topic], parse_bw), daemon=True).start()
+
+        interface_data = {}
+        net_lock = threading.Lock()
+        if net:
+            def format_bits(value_bits):
+                kb = 1024
+                mb = kb * 1024
+                gb = mb * 1024
+                if value_bits < kb:
+                    return f"{value_bits:.2f} b/s"
+                elif value_bits < mb:
+                    return f"{value_bits / kb:.2f} Kb/s"
+                elif value_bits < gb:
+                    return f"{value_bits / mb:.2f} Mb/s"
+                else:
+                    return f"{value_bits / gb:.2f} Gb/s"
+
+            def monitor_network():
+                old_data = {}
+                while True:
+                    time.sleep(1)
+                    with open("/proc/net/dev", "r") as f:
+                        lines = f.readlines()[2:]
+
+                    with net_lock:
+                        for line in lines:
+                            parts = line.strip().split()
+                            iface = parts[0].strip(":")
+                            rx_bytes = int(parts[1])
+                            tx_bytes = int(parts[9])
+
+                            rx_bits = rx_bytes * 8
+                            tx_bits = tx_bytes * 8
+
+                            if iface in old_data:
+                                delta_rx = rx_bits - old_data[iface]['rx']
+                                delta_tx = tx_bits - old_data[iface]['tx']
+                                interface_data[iface] = {
+                                    'rx': format_bits(delta_rx),
+                                    'tx': format_bits(delta_tx)
+                                }
+                            old_data[iface] = {'rx': rx_bits, 'tx': tx_bits}
+            threading.Thread(target=monitor_network, daemon=True).start()
+
+
+
+        window_arg = ['-w', str(args.window)]
+        threading.Thread(target=launch_monitor, args=(['ros2', 'topic', 'hz'] + window_arg + [topic], parse_hz), daemon=True).start()
+        threading.Thread(target=launch_monitor, args=(['ros2', 'topic', 'delay'] + window_arg + [topic], parse_delay), daemon=True).start()
+        threading.Thread(target=launch_monitor, args=(['ros2', 'topic', 'bw'] + window_arg + [topic], parse_bw), daemon=True).start()
+
 
         if qos:
-            try:
-                raw_output = subprocess.check_output(['ros2', 'topic', 'info', '-v', topic], text=True)
+            qos_summary_lock = threading.Lock()
+            qos_summary_lock = threading.Lock()
 
-                # Extraer tipo de mensaje
-                msg_type_match = re.search(r'^Type:\s+(.*)', raw_output, re.MULTILINE)
-                msg_type = msg_type_match.group(1) if msg_type_match else "Desconocido"
+            def update_qos():
+                nonlocal qos_summary
+                while True:
+                    try:
+                        raw_output = subprocess.check_output(['ros2', 'topic', 'info', '-v', topic], text=True)
+                        with qos_summary_lock:
+                            qos_summary = raw_output
+                    except subprocess.CalledProcessError:
+                        with qos_summary_lock:
+                            qos_summary = "[ERROR] No se pudo obtener la información QoS."
 
-                blocks = raw_output.split("Node name:")
-                parsed = []
-                for block in blocks[1:]:
-                    lines = block.strip().splitlines()
-                    node = endpoint = ""
-                    qos = {}
-                    for line in lines:
-                        if line.startswith("Node name:"):
-                            node = line.split(":", 1)[1].strip()
-                        elif "Endpoint type:" in line:
-                            endpoint = line.split(":", 1)[1].strip()
-                        elif ":" in line and "QoS profile" not in line:
-                            key, val = line.strip().split(":", 1)
-                            qos[key.strip()] = val.strip()
-                    parsed.append((node, endpoint, qos))
+                    time.sleep(2)
 
-                # Formatear resumen
-                qos_lines = [f"[QoS Info] \n Topic Type: {msg_type}"]
-                for node, ep_type, qos in parsed:
-                    qos_lines.append(f"  Node: {node} ({ep_type})")
-                    for k, v in qos.items():
-                        qos_lines.append(f"    {k}: {v}")
-                    qos_lines.append("")
-                qos_summary = "\n".join(qos_lines)
-
-            except subprocess.CalledProcessError:
-                qos_summary = "[ERROR] No se pudo obtener la información QoS."
+            threading.Thread(target=update_qos, daemon=True).start()
 
         try:
             while True:
-                os.system('clear')  # en Windows usar 'cls'
                 table = [
                     ["Valor", f"{data['hz']} hz", f"{data['delay']} s", f"{data['bw']} MB/s"],
                     ["Info", f"win: {data['hz_win']}", f"win: {data['delay_win']}", f"msg_size: {data['msg_size']} MB"],
@@ -124,10 +153,21 @@ class MonitorVerb(VerbExtension):
                 headers = [' ', 'HZ', 'Delay', 'BW']
                 print(tabulate(table, headers=headers, tablefmt='fancy_grid'))
 
+                if net:
+                    print("\n[Network Info]")
+                    with net_lock:
+                        net_table = [["Interfaz", "RX", "TX"]]
+                        for iface, stats in sorted(interface_data.items()):
+                            net_table.append([iface, stats['rx'], stats['tx']])
+                    print(tabulate(net_table, headers="firstrow", tablefmt='fancy_grid'))
+
                 if qos:
                     print()
-                    print(qos_summary)
-
+                    with qos_summary_lock:
+                        print(qos_summary)
                 time.sleep(1)
+
+                print("\n" + "="*80 + "\n")
+
         except KeyboardInterrupt:
             print("\nMonitor detenido.")
