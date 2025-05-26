@@ -1,6 +1,6 @@
 # ros2custom
 
-**ros2custom** es un plugin que permite ejecutar varios comandos nativos de ROS al mismo tiempo en un terminal y representarlos de una forma clara.
+**ros2custom** es una extensión del CLI de ROS2 que permite ejecutar varios comandos nativos de ROS al mismo tiempo en un terminal y representarlos de una forma clara.
 
 ## Instalación
 
