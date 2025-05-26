@@ -9,7 +9,9 @@ ros2_ws/
     └── ros2custom/
         ├── package.xml
         ├── setup.py
-        ├── setup.cfg
+        ├── README.md
+        ├── resource/
+        |   ├── ros2custom
         └── ros2custom/
             ├── __init__.py
             ├── command/
@@ -18,7 +20,7 @@ ros2_ws/
             └── verb/
                 ├── __init__.py
                 ├── node.py               ← Verb 'node'
-                ├── topic.py              ← Verb 'topic'
+                └── topic.py              ← Verb 'topic'
 ```
 
 ## Instalación
