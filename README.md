@@ -11,7 +11,7 @@ ros2_ws/
         ├── setup.py
         ├── README.md
         ├── resource/
-        │   ├── ros2custom
+        │   └── ros2custom
         └── ros2custom/
             ├── __init__.py
             ├── command/
