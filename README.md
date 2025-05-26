@@ -2,6 +2,25 @@
 
 **ros2custom** es una extensión del CLI de ROS2 que permite ejecutar varios comandos nativos de ROS al mismo tiempo en un terminal y representarlos de una forma clara.
 
+## Estructura
+```bash
+ros2_ws/
+└── src/
+    └── ros2custom/
+        ├── package.xml
+        ├── setup.py
+        ├── setup.cfg
+        └── ros2custom/
+            ├── __init__.py
+            ├── command/
+            │   ├── __init__.py
+            │   └── custom.py              ← Comando 'ros2 custom'
+            └── verb/
+                ├── __init__.py
+                ├── node.py               ← Verb 'node'
+                ├── topic.py              ← Verb 'topic'
+```
+
 ## Instalación
 
 Para la instalación lo trataremos como cualquier otro paquete de ROS
