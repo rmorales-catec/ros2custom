@@ -36,7 +36,8 @@ setup(
             'custom = ros2custom.command.custom:CustomCommand',
         ],
         'ros2custom.verb': [
-            'monitor = ros2custom.verb.monitor:MonitorVerb',
+            'topic = ros2custom.verb.topic:TopicVerb',
+            'node = ros2custom.verb.node:NodeVerb',
         ],
     }
 )

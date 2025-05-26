@@ -7,7 +7,9 @@ import os
 from ros2cli.verb import VerbExtension
 from tabulate import tabulate
 
-class MonitorVerb(VerbExtension):
+class TopicVerb(VerbExtension):
+    """Monitor real-time info of a given topic."""
+
     def add_arguments(self, parser: argparse.ArgumentParser, cli_name: str):
         parser.add_argument('topic', help='Nombre del tópico a monitorear')
         parser.add_argument('-qos', '--QualityOfService', action='store_true', help='Muestra información detallada del QoS')
