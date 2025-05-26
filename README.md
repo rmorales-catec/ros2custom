@@ -61,16 +61,16 @@ Se mostrará por el terminal una tabla que contiene los datos de la frecuencia d
     ╘════════════╧══════╧══════╛
   ```
 
-  Toda la información que aparece se irá refrescando cada segundo, permitiendo asi monitorizar todo en tiempo real
+  Toda la información que aparece se irá refrescando cada segundo, permitiendo monitorizar todo en tiempo real
 
 
 ### Verb `node`
 
 Para utilizarlo, deberemos ejecutar el comando `ros2 custom node` y pasarle el nombre de un nodo: 
-    ```terminal
-    #Ejemplo
-    ros2 custom node /turtlesim
-    ```
+  ```terminal
+  #Ejemplo
+  ros2 custom node /turtlesim
+  ```
 Se mostrará una tabla con el nombre y el valor de todos los parámetros configurables que tenga ese nodo:
   ```bash
     [Parámetros actualizados]
